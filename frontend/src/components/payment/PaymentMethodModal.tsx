@@ -94,7 +94,7 @@ export default function PaymentMethodModal({
         lastFourDigits: paymentMethod.card?.last4 || "0000",
         expiryMonth: paymentMethod.card?.exp_month?.toString() || "01",
         expiryYear: paymentMethod.card?.exp_year?.toString() || "2025",
-        billingAddress: "N/A", // Replace if you have billing address
+        billingAddress: "N/A",
       });
 
       onPaymentMethodSelect(paymentMethod.id);

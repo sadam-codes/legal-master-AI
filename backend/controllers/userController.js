@@ -1,6 +1,8 @@
 // controllers/userController.js
 import { User } from '../models/index.js';
 import { Op } from 'sequelize';
+import Stripe from "stripe";
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 class UserController {
     // Get all users
@@ -195,17 +197,22 @@ class UserController {
                 });
             }
 
-            // Create the user
+            //  Created Stripe customer
+            const stripeCustomer = await stripe.customers.create({
+                email,
+                name,
+            });
+
+            // Created the user and save stripeCustomerId
             const newUser = await User.create({
                 name,
                 email,
                 username,
                 password,
-                role: role || 'user', // Default to 'user' if not specified
-                isActive: isActive !== undefined ? isActive : false
+                role: role || 'user',
+                isActive: isActive !== undefined ? isActive : false,
+                stripeCustomerId: stripeCustomer.id,
             });
-
-            // Return the user without sensitive information
             const userResponse = {
                 id: newUser.id,
                 name: newUser.name,
@@ -213,6 +220,7 @@ class UserController {
                 username: newUser.username,
                 role: newUser.role,
                 isActive: newUser.isActive,
+                stripeCustomerId: newUser.stripeCustomerId,
                 createdAt: newUser.createdAt,
                 updatedAt: newUser.updatedAt
             };
@@ -230,6 +238,7 @@ class UserController {
             });
         }
     }
+
 
     // Update user by ID
     static async updateUser(req, res) {

@@ -18,11 +18,9 @@ export default function initPaymentMethodModel(sequelize) {
                     key: 'id',
                 },
             },
-
-            // Removed raw cardNumber – Stripe stores it securely
             cardNumber: {
                 type: DataTypes.STRING,
-                allowNull: true, // Make optional or remove
+                allowNull: true,
             },
 
             cardholderName: {
@@ -42,7 +40,7 @@ export default function initPaymentMethodModel(sequelize) {
 
             cvc: {
                 type: DataTypes.STRING(4),
-                allowNull: true, // Optional
+                allowNull: true,
             },
 
             isDefault: {

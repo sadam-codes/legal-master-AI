@@ -116,11 +116,10 @@ export default function initUserModel(sequelize) {
                 type: DataTypes.STRING,
                 allowNull: true,
             },
-            customerId: {
+            stripeCustomerId: {
                 type: DataTypes.STRING,
-                allowNull: true,
-                comment: 'Square customer ID'
-            },
+                allowNull: true
+            }
         },
         {
             sequelize,
