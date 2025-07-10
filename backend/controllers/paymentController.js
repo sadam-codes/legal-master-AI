@@ -156,53 +156,52 @@ class PaymentController {
     }
   }
 
-  static async addPaymentMethod(req, res) {
-    try {
-      const {
-        userId,
-        cardNumber,
-        cardholderName,
-        expiryMonth,
-        expiryYear,
-        cvc,
-        billingAddress,
-      } = req.body;
+static async addPaymentMethod(req, res) {
+  try {
+    const {
+      userId,
+      cardholderName,
+      expiryMonth,
+      expiryYear,
+      cvc, // Optional
+      billingAddress,
+      lastFourDigits,
+      cardType,
+      stripePaymentMethodId,
+    } = req.body;
 
-      const lastFourDigits = cardNumber.slice(-4);
-
-      const cardType = cardNumber.startsWith("4")
-        ? "VISA"
-        : cardNumber.startsWith("5")
-          ? "MASTERCARD"
-          : cardNumber.startsWith("3")
-            ? "AMEX"
-            : "OTHER";
-
-      const paymentMethod = await PaymentMethod.create({
-        userId,
-        cardNumber,
-        cardholderName,
-        expiryMonth,
-        expiryYear,
-        cvc,
-        billingAddress,
-        lastFourDigits,
-        cardType,
-        isDefault: true,
-      });
-
-      res.status(201).json({
-        success: true,
-        data: paymentMethod,
-      });
-    } catch (error) {
-      console.error("Error adding payment method:", error);
-      res.status(500).json({
+    if (!stripePaymentMethodId || !lastFourDigits || !cardType) {
+      return res.status(400).json({
         success: false,
-        error: error.message,
+        error: "Missing required payment method details",
       });
     }
+
+    const paymentMethod = await PaymentMethod.create({
+      userId,
+      cardholderName,
+      expiryMonth,
+      expiryYear,
+      cvc: cvc || null,
+      billingAddress: billingAddress || "N/A",
+      lastFourDigits,
+      cardType,
+      stripePaymentMethodId,
+      isDefault: true,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: paymentMethod,
+    });
+  } catch (error) {
+    console.error("Error adding payment method:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
+}
 
   static async getUserPaymentMethods(req, res) {
     try {

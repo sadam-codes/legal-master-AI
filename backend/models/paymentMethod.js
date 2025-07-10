@@ -8,74 +8,80 @@ export default function initPaymentMethodModel(sequelize) {
             id: {
                 type: DataTypes.INTEGER,
                 primaryKey: true,
-                autoIncrement: true
+                autoIncrement: true,
             },
             userId: {
                 type: DataTypes.INTEGER,
                 allowNull: false,
                 references: {
                     model: 'users',
-                    key: 'id'
-                }
+                    key: 'id',
+                },
             },
+
+            // Removed raw cardNumber – Stripe stores it securely
             cardNumber: {
                 type: DataTypes.STRING,
-                allowNull: false
+                allowNull: true, // Make optional or remove
             },
+
             cardholderName: {
                 type: DataTypes.STRING,
-                allowNull: false
+                allowNull: false,
             },
+
             expiryMonth: {
                 type: DataTypes.STRING(2),
-                allowNull: false
+                allowNull: false,
             },
+
             expiryYear: {
                 type: DataTypes.STRING(4),
-                allowNull: false
+                allowNull: false,
             },
+
             cvc: {
                 type: DataTypes.STRING(4),
-                allowNull: false
+                allowNull: true, // Optional
             },
-            billingAddress: {
-                type: DataTypes.TEXT,
-                allowNull: false
-            },
+
             isDefault: {
                 type: DataTypes.BOOLEAN,
-                defaultValue: false
+                defaultValue: false,
             },
+
             lastFourDigits: {
                 type: DataTypes.STRING(4),
-                allowNull: false
+                allowNull: false,
             },
+
             cardType: {
                 type: DataTypes.STRING,
-                allowNull: true
+                allowNull: false,
             },
+
             stripePaymentMethodId: {
                 type: DataTypes.STRING,
-                allowNull: true
+                allowNull: false,
             },
+
             status: {
                 type: DataTypes.BOOLEAN,
-                defaultValue: true
-            }
+                defaultValue: true,
+            },
         },
         {
             sequelize,
             modelName: 'PaymentMethod',
             tableName: 'payment_methods',
-            paranoid: true // Enable soft deletes
+            paranoid: true,
         }
     );
 
-    //  associations
     PaymentMethod.associate = (models) => {
         PaymentMethod.belongsTo(models.User, {
             foreignKey: 'userId',
-            as: 'user'
+            as: 'user',
         });
     };
 
