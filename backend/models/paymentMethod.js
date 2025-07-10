@@ -57,7 +57,12 @@ export default function initPaymentMethodModel(sequelize) {
                 type: DataTypes.STRING,
                 allowNull: false,
             },
-
+            autoReniew: {
+                type: DataTypes.BOOLEAN,
+                defaultValue: false,
+                allowNull: false,
+            }
+            ,
             stripePaymentMethodId: {
                 type: DataTypes.STRING,
                 allowNull: false,

@@ -1,4 +1,3 @@
-
 import {
   SubscriptionPlan,
   PaymentMethod,
@@ -8,6 +7,7 @@ import {
 import Stripe from "stripe";
 import "dotenv/config";
 import { Op } from "sequelize";
+import cron from "node-cron";
 
 // Stripe setup
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -163,6 +163,8 @@ class PaymentController {
         lastFourDigits,
         cardType,
         stripePaymentMethodId,
+        autoReniew,
+
       } = req.body;
 
       if (!stripePaymentMethodId || !lastFourDigits || !cardType) {
@@ -183,6 +185,7 @@ class PaymentController {
         cardType,
         stripePaymentMethodId,
         isDefault: true,
+        autoReniew: autoReniew === true,
       });
 
       res.status(201).json({
@@ -301,10 +304,10 @@ class PaymentController {
         let expiryDate = new Date();
         switch (plan.interval) {
           case "day": expiryDate.setDate(expiryDate.getDate() + 1); break;
-          case "weekly": expiryDate.setDate(expiryDate.getDate() + 7); break;
-          case "monthly": expiryDate.setMonth(expiryDate.getMonth() + 1); break;
-          case "quarterly": expiryDate.setMonth(expiryDate.getMonth() + 3); break;
-          case "yearly": expiryDate.setFullYear(expiryDate.getFullYear() + 1); break;
+          case "week": expiryDate.setDate(expiryDate.getDate() + 7); break;
+          case "month": expiryDate.setMonth(expiryDate.getMonth() + 1); break;
+          case "quarter": expiryDate.setMonth(expiryDate.getMonth() + 3); break;
+          case "year": expiryDate.setFullYear(expiryDate.getFullYear() + 1); break;
           default: expiryDate.setMonth(expiryDate.getMonth() + 1);
         }
 
@@ -464,15 +467,14 @@ class PaymentController {
       });
     }
   }
+
   static async processSubscriptionRenewals() {
     try {
-      const expiringSubscriptions = await Subscription.findAll({
+      const now = new Date();
+      const subscriptions = await Subscription.findAll({
         where: {
           status: "ACTIVE",
-          endDate: {
-            [Op.lt]: new Date(Date.now() + 24 * 60 * 60 * 1000),
-            [Op.gt]: new Date(),
-          },
+          endDate: { [Op.gt]: now },
         },
         include: [
           { model: User, as: "user" },
@@ -480,40 +482,68 @@ class PaymentController {
         ],
       });
 
-      for (const subscription of expiringSubscriptions) {
-        try {
-          const paymentMethod = await PaymentMethod.findOne({
-            where: {
-              userId: subscription.userId,
-              isDefault: true,
-            },
+      for (const subscription of subscriptions) {
+        const timeRemainingMs = new Date(subscription.endDate) - now;
+        const timeRemainingHrs = Math.floor(timeRemainingMs / (1000 * 60 * 60));
+        const timeRemainingDays = Math.floor(timeRemainingMs / (1000 * 60 * 60 * 24));
+
+        if (timeRemainingMs <= 0) {
+          console.log(`Subscription ${subscription.id} already expired`);
+          await subscription.update({
+            status: "EXPIRED",
+            endDate: new Date(),
           });
+          await subscription.user.update({ credits: 0 });
+          continue;
+        }
 
-          if (!paymentMethod) {
-            await subscription.update({
-              status: "EXPIRED",
-              endDate: new Date(),
-            });
-            continue;
-          }
+        if (timeRemainingMs < 24 * 60 * 60 * 1000) {
+          console.log(`⏳ Subscription ${subscription.id} is expiring in ${timeRemainingHrs} hour(s)`);
+        } else {
+          console.log(`🟢 Subscription ${subscription.id} has ${timeRemainingDays} day(s) left`);
+          continue;
+        }
 
+        const paymentMethod = await PaymentMethod.findOne({
+          where: {
+            userId: subscription.userId,
+            isDefault: true,
+            autoReniew: true,
+          },
+        });
+
+        if (!paymentMethod) {
+          console.log(`No default payment method for user ${subscription.userId}`);
+          await subscription.update({ status: "EXPIRED", endDate: new Date() });
+          await subscription.user.update({ credits: 0 });
+          continue;
+        }
+
+        try {
           const paymentIntent = await stripe.paymentIntents.create({
             amount: parseInt(subscription.plan.price),
             currency: "usd",
+            customer: subscription.user.stripeCustomerId,
             payment_method: paymentMethod.stripePaymentMethodId,
             confirm: true,
           });
 
           if (paymentIntent.status === "succeeded") {
-            let newExpiryDate = new Date();
-            switch (subscription.plan.interval) {
-              case "day": newExpiryDate.setDate(newExpiryDate.getDate() + 1); break;
-              case "week": newExpiryDate.setDate(newExpiryDate.getDate() + 7); break;
-              case "month": newExpiryDate.setMonth(newExpiryDate.getMonth() + 1); break;
-              case "quarter": newExpiryDate.setMonth(newExpiryDate.getMonth() + 3); break;
-              case "year": newExpiryDate.setFullYear(newExpiryDate.getFullYear() + 1); break;
-              default: newExpiryDate.setMonth(newExpiryDate.getMonth() + 1);
+            const planInterval = subscription.plan.interval;
+            let newExpiryDate = new Date(subscription.endDate);
+
+            let startDate = new Date();
+            let endDate = new Date(startDate);
+
+            switch (plan.interval) {
+              case 'day': endDate.setDate(endDate.getDate() + 1); break;
+              case 'week': endDate.setDate(endDate.getDate() + 7); break;
+              case 'month': endDate.setMonth(endDate.getMonth() + 1); break;
+              case 'quarter': endDate.setMonth(endDate.getMonth() + 3); break;
+              case 'year': endDate.setFullYear(endDate.getFullYear() + 1); break;
+              default: endDate.setMonth(endDate.getMonth() + 1);
             }
+
 
             await subscription.user.update({
               credits: subscription.plan.creditAmount,
@@ -524,31 +554,32 @@ class PaymentController {
               endDate: newExpiryDate,
               status: "ACTIVE",
             });
-          } else {
-            await subscription.update({
-              status: "EXPIRED",
-              endDate: new Date(),
-            });
 
-            await subscription.user.update({
-              credits: 0,
-            });
+            console.log(`Renewed subscription ${subscription.id} (${planInterval})`);
+          }
+          else {
+            console.log(`Payment failed for subscription ${subscription.id}`);
+            await subscription.update({ status: "EXPIRED", endDate: new Date() });
+            await subscription.user.update({ credits: 0 });
           }
         } catch (error) {
-          console.error(`Error processing renewal for subscription ${subscription.id}:`, error);
-          await subscription.update({
-            status: "EXPIRED",
-            endDate: new Date(),
-          });
-
-          await subscription.user.update({
-            credits: 0,
-          });
+          console.error(`Error renewing subscription ${subscription.id}:`, error.message);
+          await subscription.update({ status: "EXPIRED", endDate: new Date() });
+          await subscription.user.update({ credits: 0 });
         }
       }
     } catch (error) {
-      console.error("Error in subscription renewal process:", error);
+      console.error("Error in subscription renewal process:", error.message);
     }
   }
+
 }
+
+cron.schedule("* * * * *", async () => {
+  console.log("Running subscription renewal check every minute...");
+  await PaymentController.processSubscriptionRenewals();
+});
+
+
+
 export default PaymentController; 

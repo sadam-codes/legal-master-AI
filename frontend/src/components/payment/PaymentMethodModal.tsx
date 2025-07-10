@@ -44,6 +44,7 @@ export default function PaymentMethodModal({
   const [showAddNew, setShowAddNew] = useState(false);
   const { user } = useUserStore();
   const [activeTab, setActiveTab] = useState("direct-payment");
+  const [autoRenew, setAutoRenew] = useState(false);
 
   const stripe = useStripe();
   const elements = useElements();
@@ -94,7 +95,7 @@ export default function PaymentMethodModal({
         lastFourDigits: paymentMethod.card?.last4 || "0000",
         expiryMonth: paymentMethod.card?.exp_month?.toString() || "01",
         expiryYear: paymentMethod.card?.exp_year?.toString() || "2025",
-        billingAddress: "N/A",
+        autoReniew: autoRenew,
       });
 
       onPaymentMethodSelect(paymentMethod.id);
@@ -126,6 +127,16 @@ export default function PaymentMethodModal({
               <div className="border p-4 rounded bg-white">
                 <CardElement options={{ hidePostalCode: true }} />
               </div>
+            </div>
+            <div className="flex items-center space-x-2 mt-2">
+              <input
+                type="checkbox"
+                id="autoRenew"
+                checked={autoRenew}
+                onChange={(e) => setAutoRenew(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <Label htmlFor="autoRenew">Enable Auto-Renew</Label>
             </div>
 
             <DialogFooter>
