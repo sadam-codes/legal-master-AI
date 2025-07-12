@@ -158,13 +158,12 @@ class PaymentController {
         cardholderName,
         expiryMonth,
         expiryYear,
-        cvc, // Optional
+        cvc,
         billingAddress,
         lastFourDigits,
         cardType,
         stripePaymentMethodId,
         autoReniew,
-
       } = req.body;
 
       if (!stripePaymentMethodId || !lastFourDigits || !cardType) {
@@ -174,6 +173,34 @@ class PaymentController {
         });
       }
 
+      const user = await User.findByPk(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: "User not found",
+        });
+      }
+
+      if (!user.stripeCustomerId) {
+        return res.status(400).json({
+          success: false,
+          error: "User does not have a Stripe customer ID",
+        });
+      }
+
+      // ✅ Attach payment method to Stripe customer
+      await stripe.paymentMethods.attach(stripePaymentMethodId, {
+        customer: user.stripeCustomerId,
+      });
+
+      // ✅ Optionally set as default for invoices
+      await stripe.customers.update(user.stripeCustomerId, {
+        invoice_settings: {
+          default_payment_method: stripePaymentMethodId,
+        },
+      });
+
+      // ✅ Now save to DB
       const paymentMethod = await PaymentMethod.create({
         userId,
         cardholderName,
@@ -200,6 +227,7 @@ class PaymentController {
       });
     }
   }
+
   static async getUserPaymentMethods(req, res) {
     try {
       const userId = req.user.id;
@@ -255,6 +283,7 @@ class PaymentController {
         currency: currency || "usd",
         automatic_payment_methods: {
           enabled: true,
+          allow_redirects: 'never'
         },
       });
 
@@ -525,17 +554,20 @@ class PaymentController {
             currency: "usd",
             customer: subscription.user.stripeCustomerId,
             payment_method: paymentMethod.stripePaymentMethodId,
+            off_session: true,
             confirm: true,
+            automatic_payment_methods: {
+              enabled: true,
+              allow_redirects: 'never',
+            }
           });
 
           if (paymentIntent.status === "succeeded") {
             const planInterval = subscription.plan.interval;
-            let newExpiryDate = new Date(subscription.endDate);
-
             let startDate = new Date();
             let endDate = new Date(startDate);
 
-            switch (plan.interval) {
+            switch (subscription.plan.interval) {
               case 'day': endDate.setDate(endDate.getDate() + 1); break;
               case 'week': endDate.setDate(endDate.getDate() + 7); break;
               case 'month': endDate.setMonth(endDate.getMonth() + 1); break;
@@ -544,14 +576,15 @@ class PaymentController {
               default: endDate.setMonth(endDate.getMonth() + 1);
             }
 
-
             await subscription.user.update({
               credits: subscription.plan.creditAmount,
             });
 
             await subscription.update({
-              startDate: new Date(),
-              endDate: newExpiryDate,
+              startDate,
+              endDate, 
+              lastBillingDate: startDate,
+              nextBillingDate: endDate,
               status: "ACTIVE",
             });
 

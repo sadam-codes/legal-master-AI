@@ -1,3 +1,4 @@
+
 import { DataTypes, Model } from 'sequelize';
 
 export default function initSubscriptionPlanModel(sequelize) {

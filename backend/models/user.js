@@ -142,4 +142,4 @@ export default function initUserModel(sequelize) {
     });
 
     return User;
-}
+}   

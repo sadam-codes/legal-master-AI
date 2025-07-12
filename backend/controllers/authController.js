@@ -7,13 +7,13 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import fs from 'fs';
-import { SquareClient, SquareEnvironment } from "square";
+// import { SquareClient, SquareEnvironment } from "square";
 
 
-const squareClient = new SquareClient({
-    environment: SquareEnvironment.Sandbox,
-    token: "EAAAl0fGitKOGZqZVGwydyJBV_JhGacnWSQXrm02jnMPZ8kf2FQ9DwtzUnNk3wYm",
-});
+// const squareClient = new SquareClient({
+//     environment: SquareEnvironment.Sandbox,
+//     token: "EAAAl0fGitKOGZqZVGwydyJBV_JhGacnWSQXrm02jnMPZ8kf2FQ9DwtzUnNk3wYm",
+// });
 
 
 dotenv.config();
@@ -211,22 +211,23 @@ class AuthController {
         }
     }
 
-    static async createSquareCustomer(user) {
-        try {
-            const response = await squareClient.customers.create({
-                idempotencyKey: crypto.randomBytes(32).toString('hex'),
-                givenName: user.name,
-                emailAddress: user.email,
-            });
+    // static async createSquareCustomer(user) {
+    //     try {
+    //         const response = await squareClient.customers.create({
+    //             idempotencyKey: crypto.randomBytes(32).toString('hex'),
+    //             givenName: user.name,
+    //             emailAddress: user.email,
+    //         });
 
-            return response.customer.id;
-        } catch (error) {
-            console.error('Error creating Square customer:', error);
-            throw new Error(`Error creating Square customer: ${error.message}`);
-        }
-    }
+    //         return response.customer.id;
+    //     } catch (error) {
+    //         console.error('Error creating Square customer:', error);
+    //         throw new Error(`Error creating Square customer: ${error.message}`);
+    //     }
+    // }
 
     static async signup(req, res) {
+
         const { name, email, password, username } = req.body;
 
         try {
@@ -251,13 +252,15 @@ class AuthController {
                 role: 'user',
             });
 
-            // Create Square customer
+            // Create stripe customer
             try {
-                const customerId = await AuthController.createSquareCustomer(newUser);
-                await newUser.update({ customerId });
+                const stripeCustomer = await stripe.customers.create({
+                    name: newUser.name,
+                    email: newUser.email,
+                });
+                await newUser.update({ stripeCustomerId: stripeCustomer.id });
             } catch (error) {
-                console.error('Error creating Square customer:', error);
-                // Continue with signup even if Square customer creation fails
+                console.error("Stripe customer creation failed:", error.message);
             }
 
             // Send confirmation email

@@ -67,7 +67,7 @@ const authService = {
   },
 
   signup: async (data: SignupRequest): Promise<AuthResponse> => {
-    const response = await api.post("/auth/signup", data);
+    const response = await api.post("/users", data);
     return response.data;
   },
 
