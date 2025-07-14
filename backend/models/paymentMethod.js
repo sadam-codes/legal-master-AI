@@ -19,10 +19,6 @@ export default function initPaymentMethodModel(sequelize) {
                     key: 'id',
                 },
             },
-            cardNumber: {
-                type: DataTypes.STRING,
-                allowNull: true,
-            },
 
             cardholderName: {
                 type: DataTypes.STRING,
@@ -37,11 +33,6 @@ export default function initPaymentMethodModel(sequelize) {
             expiryYear: {
                 type: DataTypes.STRING(4),
                 allowNull: false,
-            },
-
-            cvc: {
-                type: DataTypes.STRING(4),
-                allowNull: true,
             },
 
             isDefault: {
