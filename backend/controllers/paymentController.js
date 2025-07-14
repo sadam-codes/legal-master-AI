@@ -277,13 +277,28 @@ class PaymentController {
   static async processPayment(req, res) {
     try {
       const { amount, currency } = req.body;
+      const userId = req.user.id;
+
+      const user = await User.findByPk(userId);
+      if (!user || !user.stripeCustomerId) {
+        return res.status(400).json({
+          success: false,
+          error: "User or Stripe customer ID not found",
+        });
+      }
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: parseInt(amount),
         currency: currency || "usd",
+        customer: user.stripeCustomerId, 
+        description: `Initial payment by ${user.name} (${user.email})`,
+        metadata: {
+          userId: user.id,
+          username: user.username,
+        },
         automatic_payment_methods: {
           enabled: true,
-          allow_redirects: 'never'
+          allow_redirects: 'never',
         },
       });
 
@@ -301,6 +316,7 @@ class PaymentController {
       });
     }
   }
+
   static async confirmPayment(req, res) {
     try {
       const { paymentIntentId, creditAmount, planId } = req.body;
@@ -582,7 +598,7 @@ class PaymentController {
 
             await subscription.update({
               startDate,
-              endDate, 
+              endDate,
               lastBillingDate: startDate,
               nextBillingDate: endDate,
               status: "ACTIVE",
