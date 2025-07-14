@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// Payment Methods
+// These are all Payment Methods
 router.post("/", PaymentController.addPaymentMethod);
 router.get("/", PaymentController.getUserPaymentMethods);
 router.delete("/:id", PaymentController.deletePaymentMethod); 

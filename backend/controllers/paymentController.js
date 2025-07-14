@@ -1,5 +1,4 @@
 import {
-  Payment,
   SubscriptionPlan,
   PaymentMethod,
   User,
@@ -333,25 +332,14 @@ class PaymentController {
       }
 
       const user = await User.findByPk(userId);
-
-      // ✅ Add credits to user
       user.credits += parseInt(creditAmount || 0);
       await user.save();
 
-      // ✅ Save payment to DB
-      const savedPayment = await Payment.create({
-        userId,
-        amount: paymentIntent.amount,
-        stripePaymentIntentId: paymentIntent.id,
-        currency: paymentIntent.currency,
-        status: paymentIntent.status,
-      });
-
       const paymentData = {
-        id: savedPayment.id,
-        amount: savedPayment.amount,
-        status: savedPayment.status,
-        currency: savedPayment.currency,
+        id: paymentIntent.id,
+        amount: paymentIntent.amount,
+        status: paymentIntent.status,
+        currency: paymentIntent.currency,
       };
 
       if (planId) {
@@ -402,7 +390,6 @@ class PaymentController {
       });
     }
   }
-
   static async listCustomerPayments(req, res) {
     try {
       const { customerId } = req.params;
