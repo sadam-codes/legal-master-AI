@@ -188,19 +188,38 @@ class PaymentController {
         });
       }
 
-      // ✅ Attach payment method to Stripe customer
+      // ✅ Attach to Stripe customer
       await stripe.paymentMethods.attach(stripePaymentMethodId, {
         customer: user.stripeCustomerId,
       });
 
-      // ✅ Optionally set as default for invoices
+      // ✅ Set as default payment method on Stripe
       await stripe.customers.update(user.stripeCustomerId, {
         invoice_settings: {
           default_payment_method: stripePaymentMethodId,
         },
       });
 
-      // ✅ Now save to DB
+      // ✅ Make all others non-default
+      await PaymentMethod.update(
+        { isDefault: false },
+        { where: { userId } }
+      );
+
+      // ✅ If autoReniew is true, disable it on others
+      if (autoReniew === true) {
+        await PaymentMethod.update(
+          { autoReniew: false },
+          {
+            where: {
+              userId,
+              stripePaymentMethodId: { [Op.ne]: stripePaymentMethodId },
+            },
+          }
+        );
+      }
+
+      // ✅ Save new payment method
       const paymentMethod = await PaymentMethod.create({
         userId,
         cardholderName,
@@ -212,7 +231,7 @@ class PaymentController {
         cardType,
         stripePaymentMethodId,
         isDefault: true,
-        autoReniew: autoReniew === true,
+        autoReniew: Boolean(autoReniew),
       });
 
       res.status(201).json({
@@ -227,6 +246,8 @@ class PaymentController {
       });
     }
   }
+
+
 
   static async getUserPaymentMethods(req, res) {
     try {
@@ -277,28 +298,13 @@ class PaymentController {
   static async processPayment(req, res) {
     try {
       const { amount, currency } = req.body;
-      const userId = req.user.id;
-
-      const user = await User.findByPk(userId);
-      if (!user || !user.stripeCustomerId) {
-        return res.status(400).json({
-          success: false,
-          error: "User or Stripe customer ID not found",
-        });
-      }
 
       const paymentIntent = await stripe.paymentIntents.create({
         amount: parseInt(amount),
         currency: currency || "usd",
-        customer: user.stripeCustomerId,
-        description: `Initial payment by ${user.name}`,
-        metadata: {
-          userId: user.id,
-          username: user.username,
-        },
         automatic_payment_methods: {
           enabled: true,
-          allow_redirects: 'never',
+          allow_redirects: 'never'
         },
       });
 
@@ -316,7 +322,6 @@ class PaymentController {
       });
     }
   }
-
   static async confirmPayment(req, res) {
     try {
       const { paymentIntentId, creditAmount, planId } = req.body;
@@ -542,12 +547,6 @@ class PaymentController {
           continue;
         }
 
-        if (timeRemainingMs < 24 * 60 * 60 * 1000) {
-          console.log(`⏳ Subscription ${subscription.id} is expiring in ${timeRemainingHrs} hour(s)`);
-        } else {
-          console.log(`🟢 Subscription ${subscription.id} has ${timeRemainingDays} day(s) left`);
-          continue;
-        }
 
         const paymentMethod = await PaymentMethod.findOne({
           where: {

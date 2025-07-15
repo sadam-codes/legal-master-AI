@@ -1,29 +1,30 @@
 import { createServer } from 'http';
 import app from './app.js';
 import sync from './config/sync.js';
-import sequelize from './models/index.js';
+import sequelize from './models/index.js'; // Import the sync function
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const server = createServer(app);
-const PORT = process.env.PORT || 3000;
 
-// Start server only after successful DB connection and sync
+// Initialize WebSocket server
+
+const PORT = process.env.PORT || 3000; // Fallback to port 3000 if not specified
+
+// Sync database and then start the server
 const startServer = async () => {
-    try {
-        await sequelize.authenticate();
-        console.log("✅ Database connected successfully.");
-
-        await sync(); // sync models
-        console.log("✅ Models synced.");
-
-        server.listen(PORT, () => {
-            console.log(`🚀 Server running on port ${PORT}`);
-        });
-    } catch (error) {
-        console.error("❌ Error starting server:", error);
-    }
+    await sequelize.authenticate();
+    console.log("Database connected successfully.");
+    // Sync the database first
+    server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
 };
 
-startServer();
+await sequelize.authenticate();
+await sync();
+console.log("Database connected successfully.");
+startServer().catch((error) => {
+    console.error('Error starting the server:', error);
+});

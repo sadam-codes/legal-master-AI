@@ -141,7 +141,7 @@ export default function PaymentMethodModal({
 
             <DialogFooter>
               <Button
-                className="w-full cursor-pointer"
+                className="w-full"
                 onClick={handleDirectPayment}
                 disabled={processingPayment}
               >
