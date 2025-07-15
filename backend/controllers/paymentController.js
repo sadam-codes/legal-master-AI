@@ -188,25 +188,25 @@ class PaymentController {
         });
       }
 
-      // ✅ Attach to Stripe customer
+      // Attach to Stripe customer
       await stripe.paymentMethods.attach(stripePaymentMethodId, {
         customer: user.stripeCustomerId,
       });
 
-      // ✅ Set as default payment method on Stripe
+      // Set as default payment method on Stripe
       await stripe.customers.update(user.stripeCustomerId, {
         invoice_settings: {
           default_payment_method: stripePaymentMethodId,
         },
       });
 
-      // ✅ Make all others non-default
+      // Make all others non-default
       await PaymentMethod.update(
         { isDefault: false },
         { where: { userId } }
       );
 
-      // ✅ If autoReniew is true, disable it on others
+      // If autoReniew is true, disable it on others
       if (autoReniew === true) {
         await PaymentMethod.update(
           { autoReniew: false },
@@ -219,7 +219,7 @@ class PaymentController {
         );
       }
 
-      // ✅ Save new payment method
+      // Save new payment method
       const paymentMethod = await PaymentMethod.create({
         userId,
         cardholderName,
@@ -246,8 +246,6 @@ class PaymentController {
       });
     }
   }
-
-
 
   static async getUserPaymentMethods(req, res) {
     try {

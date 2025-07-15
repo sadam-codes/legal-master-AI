@@ -5,11 +5,11 @@ import authMiddleware from '../middlewares/authMiddleware.js';
 import adminMiddleware from '../middlewares/adminMiddleware.js';
 
 const router = express.Router();
-router.post('/', UserController.createUser);
+
 // Require authentication and admin role for all routes
 router.use(authMiddleware);
 router.use(adminMiddleware);
-
+router.post('/', UserController.createUser);
 // Get all users
 router.get('/', UserController.getAllUsers);
 
